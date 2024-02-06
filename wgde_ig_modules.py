@@ -4,7 +4,7 @@ import torch.nn as nn
 import numpy as np
 
 
-class TrustRNNCell(nn.Module):
+class IGCell(nn.Module):
     def __init__(self, robot_input_dim, group_input_dim, r_hdim, g_hdim):
         """
         :param robot_input_dim: The input dimension of robot data.
@@ -12,7 +12,7 @@ class TrustRNNCell(nn.Module):
         :param r_hdim: Hidden dimension for the robot cell.
         :param g_hdim: Hidden dimension for the user group cell.
         """
-        super(TrustRNNCell, self).__init__()
+        super(IGCell, self).__init__()
         self.robot_input_dim = robot_input_dim
         self.group_input_dim = group_input_dim
         self.r_hdim = r_hdim
@@ -34,7 +34,7 @@ class TrustRNNCell(nn.Module):
         return r_hidden, g_hidden
 
 
-class GroupCell(nn.Module):
+class WGDECell(nn.Module):
     def __init__(self, data_helper, group_input_dim, split_participants=0,
                  p_rnn_hdim=20, participant_in_dim=49, group_only_dim=0, batch_size=64, device='cpu'):
         """
@@ -46,7 +46,7 @@ class GroupCell(nn.Module):
         :param batch_size: Batch size for training.
         :param device: Torch device to use for training.
         """
-        super(GroupCell, self).__init__()
+        super(WGDECell, self).__init__()
         self.group_input_dim = group_input_dim
         self.split_participants = split_participants
         self.group_only_dim = group_only_dim
@@ -124,7 +124,7 @@ class SelfAttention(nn.Module):
         return value, attention
 
 
-class TrustRNN(nn.Module):
+class IGRNN(nn.Module):
     def __init__(self, data_helper, robot_input_dim, group_input_dim, r_hdim, g_hdim,
                  split_participants=0, p_rnn_hdim=10, participant_in_dim=49, group_only_dim=0,
                  batch_size=64, device='cpu'):
@@ -140,7 +140,7 @@ class TrustRNN(nn.Module):
         :param batch_size: Batch size for training.
         :param device: Torch device.
         """
-        super(TrustRNN, self).__init__()
+        super(IGRNN, self).__init__()
         self.robot_input_dim = robot_input_dim
         self.group_input_dim = group_input_dim
         self.r_hdim = r_hdim
@@ -153,18 +153,18 @@ class TrustRNN(nn.Module):
         self.g_hidden = torch.zeros(self.batch_size, self.g_hdim).double()
         self.data_helper = data_helper
 
-        self.group_cell = GroupCell(data_helper=self.data_helper, group_input_dim=group_input_dim,
-                                    split_participants=split_participants, p_rnn_hdim=p_rnn_hdim,
-                                    participant_in_dim=participant_in_dim, group_only_dim=group_only_dim,
-                                    batch_size=self.batch_size, device=device).to(device)
+        self.wgde_cell = WGDECell(data_helper=self.data_helper, group_input_dim=group_input_dim,
+                                  split_participants=split_participants, p_rnn_hdim=p_rnn_hdim,
+                                  participant_in_dim=participant_in_dim, group_only_dim=group_only_dim,
+                                  batch_size=self.batch_size, device=device).to(device)
 
         if split_participants:
             trust_group_input_dim = 16
         else:
             trust_group_input_dim = group_input_dim
 
-        self.trust_cell = TrustRNNCell(robot_input_dim=self.robot_input_dim, group_input_dim=trust_group_input_dim,
-                                       r_hdim=self.r_hdim, g_hdim=self.g_hdim).double()
+        self.ig_cell = IGCell(robot_input_dim=self.robot_input_dim, group_input_dim=trust_group_input_dim,
+                              r_hdim=self.r_hdim, g_hdim=self.g_hdim).double()
 
     def init_hidden(self, batch_size):
         """
@@ -180,13 +180,13 @@ class TrustRNN(nn.Module):
         """
 
         self.init_hidden(sequence.size()[1])
-        self.group_cell.init_hidden(sequence.size()[1])
+        self.wgde_cell.init_hidden(sequence.size()[1])
         all_hidden = torch.zeros(0).double().to(self.device)
 
         for t, xt in enumerate(sequence):
             xt_r = self.data_helper.get_data_slice(xt, 'robot')
-            xt_g = self.group_cell(xt)
-            self.r_hidden, self.g_hidden = self.trust_cell(xt_r, xt_g, self.r_hidden, self.g_hidden)
+            xt_g = self.wgde_cell(xt)
+            self.r_hidden, self.g_hidden = self.ig_cell(xt_r, xt_g, self.r_hidden, self.g_hidden)
             all_hidden = torch.cat((all_hidden, self.g_hidden.view(1, self.g_hidden.shape[0], -1)), dim=0)
 
         return all_hidden
@@ -214,10 +214,10 @@ class SimpleRNN(nn.Module):
         self.device = device
         self.data_helper = data_helper
 
-        self.group_cell = GroupCell(data_helper=self.data_helper, group_input_dim=group_input_dim,
-                                    split_participants=split_participants, p_rnn_hdim=p_rnn_hdim,
-                                    participant_in_dim=participant_in_dim, group_only_dim=group_only_dim,
-                                    batch_size=batch_size, device=device).to(device)
+        self.group_cell = WGDECell(data_helper=self.data_helper, group_input_dim=group_input_dim,
+                                   split_participants=split_participants, p_rnn_hdim=p_rnn_hdim,
+                                   participant_in_dim=participant_in_dim, group_only_dim=group_only_dim,
+                                   batch_size=batch_size, device=device).to(device)
 
         self.input_dim = self.group_cell.get_output_dim()
         if not self.drop_robot:
@@ -276,7 +276,7 @@ class WGDEIG(nn.Module):
     WGDEIG (Within-Group Dynamics Encoder (WGDE) + Interactional GRU (IG)) is a module to perform classification
     of TURIN trust labels based on a sequence of features from participants, the robot, and the entire group.
     """
-    def __init__(self, data_helper, robot_input_dim, group_input_dim, hidden_dims=None, architecture='SimpleRNN',
+    def __init__(self, data_helper, robot_input_dim, group_input_dim, hidden_dims=None, rnn_archi='Simple',
                  split_participants=0, p_rnn_hdim=10, participant_in_dim=10, group_only_dim=0, nb_classes=2,
                  use_attention=0, batch_size=64, seq_len=10, is_multi_output=False, drop_robot=False,
                  int_out=[], device='cpu'):
@@ -284,7 +284,7 @@ class WGDEIG(nn.Module):
         :param robot_input_dim: Input dimension of the robot data.
         :param group_input_dim: Input dimension of the group data.
         :param hidden_dims: Array containing the dimensions of the hidden state in the IG module for the robot and the group
-        :param architecture: 'SimpleRNN' to use a simple RNN or 'TrustRNN' to use the IG module after the WGDE module.
+        :param rnn_archi: 'Simple' to use a simple GRU RNN or 'IG' to use the IG module after the WGDE module.
         :param split_participants: Boolean to use the WGDE module or not.
         :param p_rnn_hdim: Hidden dimension of the participant's RNN in the WGDE module.
         :param participant_in_dim: Input dimension of each participant's data in the WGDE module.
@@ -299,7 +299,7 @@ class WGDEIG(nn.Module):
         :param device: Torch device to train the model on.
         """
         super(WGDEIG, self).__init__()
-        self.architecture = architecture
+        self.rnn_archi = rnn_archi
         self.use_attention = use_attention
         self.split_participants = split_participants
         self.p_rnn_hdim = p_rnn_hdim
@@ -310,14 +310,14 @@ class WGDEIG(nn.Module):
         self.att_weights = None
         self.data_helper = data_helper
         self._name = '{}_GE_{}_hidden_{}_prnn_{}_out_{}'.format(
-            self.architecture, self.split_participants, self.hidden_dims, self.p_rnn_hdim, int_out)
+            self.rnn_archi, self.split_participants, self.hidden_dims, self.p_rnn_hdim, int_out)
 
-        if self.architecture == 'TrustRNN':
+        if self.architecture == 'IGR':
             assert len(hidden_dims) == 2, 'Argument \'hidden_dims\' is not of length 2.'
-            self.rnn_module = TrustRNN(self.data_helper, robot_input_dim, group_input_dim, r_hdim=hidden_dims[0],
-                                       g_hdim=hidden_dims[1], split_participants=split_participants,
-                                       p_rnn_hdim=p_rnn_hdim, participant_in_dim=participant_in_dim,
-                                       group_only_dim=group_only_dim, batch_size=batch_size, device=device).to(device)
+            self.rnn_module = IGRNN(self.data_helper, robot_input_dim, group_input_dim, r_hdim=hidden_dims[0],
+                                    g_hdim=hidden_dims[1], split_participants=split_participants,
+                                    p_rnn_hdim=p_rnn_hdim, participant_in_dim=participant_in_dim,
+                                    group_only_dim=group_only_dim, batch_size=batch_size, device=device).to(device)
             self.att_dim = hidden_dims[1]
         else:
             self.rnn_module = SimpleRNN(data_helper=self.data_helper, robot_input_dim=robot_input_dim,

@@ -104,7 +104,8 @@ class DataHelper:
     def features2dataframe(self):
         _, (_, feature_length) = self.feature_position[-1]
 
-        col_names = ['Interaction', 'Label']
+        col_names = ['Interaction', 'Step', 'Label']
+        feature_index = len(col_names)
         for i in range(len(self.feature_position)):
             col, (start, end) = self.feature_position[i]
             for l in range(end-start+1):
@@ -118,9 +119,10 @@ class DataHelper:
                                                                    which_out=[interaction], nb_out=1)
             assert x_val.shape[-1] == feature_length + 1  # Add 1 since the dict cols stores indexes.
 
-            for (index, column) in enumerate(df_tmp):
-                df_tmp[column] = x_val[:, 0, index-1]
+            for i in range(feature_index, len(col_names)):
+                df_tmp[col_names[i]] = x_val[:, 0, i-feature_index]
             df_tmp['Label'] = y_val
+            df_tmp['Step'] = [i for i in range(len(df_tmp))]
             df_tmp['Interaction'] = interaction
             df = pd.concat([df, df_tmp])
 
@@ -423,5 +425,5 @@ class DataHelper:
 if __name__ == '__main__':
 
     helper = DataHelper()
-    df = helper.features2dataframe()
-    df.to_csv('./Features/feature_dataframe.csv', sep=',', index=False)
+    df_out = helper.features2dataframe()
+    df_out.to_csv('./Features/feature_dataframe.csv', sep=',', index=False)
