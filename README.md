@@ -9,7 +9,12 @@ If you do not manage to run the code, please add an issue or contact us.
 
 If you find this repo or paper useful, please cite the following paper:
 
-> @inproceedings{hulcelle2023wgdeig, author = {Hulcelle, Marc and Hemamou, L\'{e}o and Varni, Giovanna and Rollet, Nicolas and Clavel, Chlo\'{e}}, title = {Leveraging Interactional Sociology for Trust Analysis in Multiparty Human-Robot Interaction}, year = {2023}, isbn = {9798400708244}, publisher = {Association for Computing Machinery}, address = {New York, NY, USA}, url = {https://doi.org/10.1145/3623809.3623973}, doi = {10.1145/3623809.3623973}, booktitle = {Proceedings of the 11th International Conference on Human-Agent Interaction}, pages = {484–486}, numpages = {3}, keywords = {Trust, Recurrent Neural Networks, Interactional Sociology, HRI}, location = {<conf-loc>, <city>Gothenburg</city>, <country>Sweden</country>, </conf-loc>}, series = {HAI '23}}
+    @inproceedings{hulcelle2023wgdeig, author = {Hulcelle, Marc and Hemamou, L\'{e}o and Varni, Giovanna and Rollet, Nicolas and Clavel, Chlo\'{e}},
+    title = {Leveraging Interactional Sociology for Trust Analysis in Multiparty Human-Robot Interaction},
+    year = {2023}, isbn = {9798400708244}, publisher = {Association for Computing Machinery}, address = {New York, NY, USA},
+    url = {https://doi.org/10.1145/3623809.3623973}, doi = {10.1145/3623809.3623973}, booktitle = {Proceedings of the 11th International Conference on Human-Agent Interaction}
+    pages = {484–486}, numpages = {3}, keywords = {Trust, Recurrent Neural Networks, Interactional Sociology, HRI}, location = {<conf-loc>, <city>Gothenburg</city>, <country>Sweden</country>, </conf-loc>},
+    series = {HAI '23}}
 
 # File structure
 
